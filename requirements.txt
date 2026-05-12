@@ -1,0 +1,8 @@
+pandas
+scikit-learn
+requests
+fastapi
+uvicorn
+notebook
+mlflow
+python-dotenv
