@@ -33,6 +33,18 @@ This project uses a standard Python virtual environment for dependency managemen
 4. Activate the virtual environment.
 5. Install the necessary packages by executing pip install -r requirements.txt.
 
+## Data Pipeline Execution
+
+The data pipeline consists of automated ingestion and preprocessing scripts designed for continual learning.
+
+1. Data Ingestion:
+Execute the ingestion script to fetch real time flight data from the Aviationstack API. The script prevents destructive overwrites by appending timestamps to the JSON outputs.
+`python src/ingest_data.py`
+
+2. Data Preprocessing:
+Execute the preprocessing script to clean the latest raw JSON file. This script filters cancelled flights, calculates delay durations, generates the binary classification target (`is_delayed`), and outputs a structured CSV file.
+`python src/preprocess.py`
+
 ## Branching Strategy
 
 Development strictly adheres to the GitHub Flow methodology.
