@@ -45,6 +45,16 @@ Execute the ingestion script to fetch real time flight data from the Aviationsta
 Execute the preprocessing script to clean the latest raw JSON file. This script filters cancelled flights, calculates delay durations, generates the binary classification target (`is_delayed`), and outputs a structured CSV file.
 `python src/preprocess.py`
 
+## Data Version Control (DVC)
+
+This project utilizes DVC to manage large datasets and track data lineage without bloating the Git repository. Raw datasets are stored locally or in remote object storage, while only lightweight metadata pointer files (.dvc) are committed to version control.
+
+Data Tracking Workflow:
+1. Data addition: Execute dvc add data/raw to calculate the hash of the current dataset state.
+2. Versioning: Commit the resulting data/raw.dvc file to Git to lock the dataset version to a specific code commit.
+3. Continual Learning Simulation: After executing the ingestion script to append new data, repeat the dvc add and git commit sequence to register the new state.
+4. Audit: Execute dvc diff to inspect modifications between data versions across commits.
+
 ## Branching Strategy
 
 Development strictly adheres to the GitHub Flow methodology.
