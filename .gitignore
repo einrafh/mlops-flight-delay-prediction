@@ -20,6 +20,23 @@ env/
 # MacOS folder attributes
 .DS_Store
 
-# Ignore all model files except .gitkeep
+# MLOps Project Customization
+
+## Ignore all data folder contents except .gitkeep
+data/*
+!data/.gitkeep
+!data/raw/
+data/raw/*
+!data/raw/.gitkeep
+!data/processed/
+data/processed/*
+!data/processed/.gitkeep
+
+## Ignore all model files except .gitkeep
 models/*
 !models/.gitkeep
+
+## Ignore mlflow files
+mlruns/
+mlflow.db
+/model_metadata.yaml
