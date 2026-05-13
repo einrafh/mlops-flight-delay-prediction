@@ -45,7 +45,7 @@ def preprocess_flight_data():
             delay_minutes = (act_time - sch_time).total_seconds() / 60.0
             
             # Create binary target variable (1 if delayed > 30 mins, else 0)
-            is_delayed = 1 if delay_minutes > 30 else 0
+            is_delayed = 1 if delay_minutes > 15 else 0
 
             processed_records.append({
                 'flight_date': flight.get('flight_date'),
