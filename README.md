@@ -55,6 +55,13 @@ Data Tracking Workflow:
 3. Continual Learning Simulation: After executing the ingestion script to append new data, repeat the dvc add and git commit sequence to register the new state.
 4. Audit: Execute dvc diff to inspect modifications between data versions across commits.
 
+## Model Inference and Versioning
+
+Currently, the active model used for the inference phase is FlightDelayModel (Version 2), which is set to the Production stage.
+
+Selection Rationale:
+This version was selected because it utilizes the optimal hyperparameter configuration (Random Forest with `n_estimators=200` and `max_depth=20`), proven to deliver the most stable classification performance during the MLflow tracking experiments. Furthermore, it has successfully passed programmatic verification for inference readiness using `mlflow.pyfunc.load_model`. Specific metadata ensuring the data lineage of this production model is managed and tracked via DVC in the `model_metadata.yaml.dvc` file.
+
 ## Branching Strategy
 
 Development strictly adheres to the GitHub Flow methodology.
