@@ -12,13 +12,15 @@ from sklearn.preprocessing import LabelEncoder
 
 import mlflow
 import mlflow.sklearn
+from mlflow.tracking import MlflowClient
 
 # Filter warnings for cleaner terminal output
 warnings.filterwarnings("ignore")
 
 def train_model(n_estimators, max_depth):
     """
-    Train a Random Forest model and log parameters, metrics, and artifacts to MLflow.
+    Train a Random Forest model, evaluate its performance, and conditionally 
+    register it to the MLflow Model Registry based on predefined thresholds.
     """
     mlflow.set_experiment("Flight_Delay_Prediction")
 
@@ -27,7 +29,7 @@ def train_model(n_estimators, max_depth):
     csv_files = glob.glob(os.path.join(processed_dir, "*.csv"))
     
     if not csv_files:
-        print("Error: No processed data found. Please run preprocess.py first.")
+        print("[ERROR] No processed data found. Please run preprocess.py first.")
         return
 
     latest_file = max(csv_files, key=os.path.getctime)
@@ -35,7 +37,6 @@ def train_model(n_estimators, max_depth):
 
     # 2. Feature Engineering
     le = LabelEncoder()
-    # Handle missing values if any before encoding
     df['airline'] = df['airline'].fillna('Unknown')
     df['airline_encoded'] = le.fit_transform(df['airline'])
     
@@ -43,7 +44,6 @@ def train_model(n_estimators, max_depth):
     y = df['is_delayed']
 
     # 3. Stratified Data Splitting
-    # Use 'stratify=y' to ensure both train and test sets contain delay samples
     try:
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
@@ -55,7 +55,7 @@ def train_model(n_estimators, max_depth):
         )
 
     # 4. MLflow Experiment Tracking
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         model = RandomForestClassifier(
             n_estimators=n_estimators, 
             max_depth=max_depth, 
@@ -79,9 +79,35 @@ def train_model(n_estimators, max_depth):
         mlflow.log_metric("f1_score", f1)
 
         # Logging Model Artifact
-        mlflow.sklearn.log_model(model, name="model")
+        mlflow.sklearn.log_model(model, artifact_path="model")
         
-        print("Experiment successfully logged to MLflow.\n")
+        print("[INFO] Experiment successfully logged to MLflow.")
+
+        # 5. Automated Evaluation & Model Registry
+        THRESHOLD_ACC = 0.80  # 80% accuracy threshold for production readiness
+
+        if acc >= THRESHOLD_ACC:
+            print(f"\n[EVALUATION PASSED] Accuracy ({acc:.4f}) meets the {THRESHOLD_ACC} threshold.")
+            
+            model_name = "FlightDelayModel"
+            run_id = run.info.run_id
+            model_uri = f"runs:/{run_id}/model"
+            
+            print(f"[INFO] Registering model '{model_name}' to MLflow Model Registry...")
+            model_version_info = mlflow.register_model(model_uri, model_name)
+            
+            # Transition the model to 'Staging'
+            client = MlflowClient()
+            print(f"[INFO] Transitioning Model Version {model_version_info.version} to 'Staging'...")
+            client.transition_model_version_stage(
+                name=model_name,
+                version=model_version_info.version,
+                stage="Staging"
+            )
+            print("[SUCCESS] Automated registry and stage transition completed.")
+        else:
+            print(f"\n[EVALUATION FAILED] Accuracy ({acc:.4f}) is below the {THRESHOLD_ACC} threshold.")
+            print("[WARNING] Model will not be registered or transitioned to Staging.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Flight Delay Prediction Training Script")
