@@ -18,7 +18,7 @@ def fetch_flight_data():
     params = {
         'access_key': api_key,
         'dep_iata': 'SUB',
-        'arr_iata': 'BDJ'
+        'arr_iata': 'CGK'
     }
 
     print("Fetching flight data from Aviationstack API...")

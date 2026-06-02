@@ -62,6 +62,23 @@ Currently, the active model used for the inference phase is FlightDelayModel (Ve
 Selection Rationale:
 This version was selected because it utilizes the optimal hyperparameter configuration (Random Forest with `n_estimators=200` and `max_depth=20`), proven to deliver the most stable classification performance during the MLflow tracking experiments. Furthermore, it has successfully passed programmatic verification for inference readiness using `mlflow.pyfunc.load_model`. Specific metadata ensuring the data lineage of this production model is managed and tracked via DVC in the `model_metadata.yaml.dvc` file.
 
+## Container Orchestration
+
+This project uses Docker Compose to orchestrate the MLflow Tracking Server and the FastAPI Model Inference Service within a custom network, ensuring persistent storage and service discovery. Ensure that Docker and Docker Desktop are installed and running on your system.
+
+1. Start the services:
+Execute the following command in the project root directory to build and start the entire MLOps environment.
+`docker compose up -d --build`
+
+2. Access the interfaces:
+Once the containers are running, access the services via your web browser.
+* MLflow Tracking UI: http://localhost:5000 (Used to view training experiments and Model Registry)
+* FastAPI Inference: http://localhost:8000/docs (Interactive Swagger UI to test the /predict endpoint)
+
+3. Stop the services:
+Execute the following command to safely stop the application and remove the running containers.
+`docker compose down`
+
 ## Branching Strategy
 
 Development strictly adheres to the GitHub Flow methodology.
