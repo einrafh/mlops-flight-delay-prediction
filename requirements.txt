@@ -4,5 +4,5 @@ requests
 fastapi
 uvicorn
 notebook
-mlflow
+mlflow==2.10.2
 python-dotenv
