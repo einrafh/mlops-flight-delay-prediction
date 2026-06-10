@@ -34,7 +34,6 @@ jobs:
 
       - name: 5. Phase 2 - Data Ingestion and Preprocessing
         env:
-          # Ensure this secret is configured in your GitHub Repository settings
           AVIATIONSTACK_API_KEY: ${{ secrets.AVIATIONSTACK_API_KEY }}
         run: |
           echo "Initiating data ingestion pipeline..."

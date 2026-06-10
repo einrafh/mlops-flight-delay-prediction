@@ -3,30 +3,35 @@ from pydantic import BaseModel
 import mlflow.pyfunc
 import pandas as pd
 import os
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Gauge
 
-# Initialize FastAPI application
+# Initialize API 
 app = FastAPI(
     title="Flight Delay Inference API",
-    description="API for predicting flight delays using a trained Random Forest model.",
+    description="API for predicting flight delays with integrated Prometheus monitoring.",
     version="1.0.0"
 )
 
-# Configure MLflow Tracking URI from environment variables
-mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"))
+# Instrument app to expose default HTTP metrics (latency, RPS) at /metrics
+Instrumentator().instrument(app).expose(app)
 
+# Custom metric to monitor data drift (prediction distribution)
+prediction_gauge = Gauge(
+    "flight_delay_prediction_output", 
+    "Output of the flight delay prediction (0 or 1)"
+)
+
+# Configure MLflow
+mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"))
 MODEL_NAME = os.environ.get("MODEL_NAME", "FlightDelayModel")
 MODEL_STAGE = os.environ.get("MODEL_STAGE", "Production")
-
-# Global variable to hold the loaded model
 model = None
 
 @app.on_event("startup")
 def load_model():
-    """
-    Load the machine learning model from MLflow Model Registry upon application startup.
-    """
     global model
-    model_uri = f"models:/{MODEL_NAME}/{MODEL_STAGE}"
+    model_uri = f"models:/{MODEL_NAME}@{MODEL_STAGE}"
     print(f"[INFO] Attempting to load model from: {model_uri}")
     try:
         model = mlflow.pyfunc.load_model(model_uri)
@@ -34,15 +39,11 @@ def load_model():
     except Exception as e:
         print(f"[ERROR] Failed to load model: {e}")
 
-# Define the input data schema using Pydantic
 class FlightData(BaseModel):
     airline_encoded: int
 
 @app.get("/")
 def health_check():
-    """
-    Health check endpoint to verify service availability and model status.
-    """
     return {
         "status": "Service is running", 
         "model_ready": model is not None,
@@ -52,22 +53,21 @@ def health_check():
 
 @app.post("/predict")
 def predict(data: FlightData):
-    """
-    Inference endpoint to predict flight delays based on input features.
-    """
     if model is None:
         raise HTTPException(status_code=500, detail="Model is not loaded or unavailable.")
     
-    # Format input data into a Pandas DataFrame expected by the MLflow model
     input_df = pd.DataFrame([{"airline_encoded": data.airline_encoded}])
     
     try:
-        # Perform inference
         prediction = model.predict(input_df)
+        pred_value = int(prediction[0])
+        
+        # Export prediction output to Prometheus metric
+        prediction_gauge.set(pred_value)
         
         return {
             "airline_encoded": data.airline_encoded,
-            "is_delayed_prediction": int(prediction[0])
+            "is_delayed_prediction": pred_value
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")

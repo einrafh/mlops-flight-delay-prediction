@@ -1,0 +1,26 @@
+name: Tri-Daily Model Retrain
+
+on:
+  schedule:
+    - cron: '0 2 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  retrain-model:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Model Training
+        run: |
+          python src/train.py --n_estimators 250 --max_depth 25
