@@ -4,5 +4,11 @@ requests
 fastapi
 uvicorn
 notebook
-mlflow==2.10.2
+mlflow
 python-dotenv
+prometheus-fastapi-instrumentator==7.0.0
+prometheus-client==0.20.0
+streamlit
+plotly
+pytest
+pyyaml

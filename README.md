@@ -1,24 +1,26 @@
 # Domestic Flight Delay Prediction
 
-This project implements a production oriented Machine Learning system to predict the probability of domestic flight delays. Unlike traditional projects relying on static datasets, this system is designed to handle dynamic data streams, including flight schedules and weather conditions, utilizing Continual Learning principles to mitigate data drift.
+This project implements a production oriented Machine Learning system to predict the probability of domestic flight delays. Unlike traditional projects relying on static datasets, this system is designed to handle dynamic data streams, including flight schedules, utilizing Continual Learning principles to mitigate data drift.
 
 ## Project Objectives
 
 * ML Task: Binary Classification predicting On Time versus Delay.
 * Success Metrics: Maintain high F1 Score and Accuracy thresholds while ensuring low latency for inference API calls.
-* Continual Learning System: Implement automated model retraining triggered by either weekly schedules or detected performance degradation.
+* Continual Learning System: Implement automated model retraining and data ingestion triggered by daily and tri-daily GitHub Actions cron jobs.
 
 ## Directory Structure
 
 The repository follows standard Data Science conventions.
 
+* .github/workflows/ : CI/CD automation pipelines (Data Ingestion & Retraining)
 * config/ : Configuration files and model parameters
 * data/ : 
   * processed/ : Cleaned data and extracted features
   * raw/ : Raw data extracted via API
 * models/ : Trained binary model files
-* notebooks/ : Jupyter Notebooks for Exploratory Data Analysis
 * src/ : Source code for data ingestion, model training, and inference API
+* tests/ : Pytest suite for end-to-end pipeline and API validation
+* app.py : Streamlit Master Control Panel for pipeline orchestration
 * .gitignore : Version control exclusion rules
 * README.md : Project documentation
 * requirements.txt : Python package dependencies
@@ -29,7 +31,7 @@ This project uses a standard Python virtual environment for dependency managemen
 
 1. Clone the repository to your local machine.
 2. Navigate to the project directory.
-3. Create a virtual environment by executing python -m venv venv.
+3. Create a virtual environment by executing `python -m venv .venv`.
 4. Activate the virtual environment.
 5. Install the necessary packages by executing pip install -r requirements.txt.
 
@@ -42,7 +44,7 @@ Execute the ingestion script to fetch real time flight data from the Aviationsta
 `python src/ingest_data.py`
 
 2. Data Preprocessing:
-Execute the preprocessing script to clean the latest raw JSON file. This script filters cancelled flights, calculates delay durations, generates the binary classification target (`is_delayed`), and outputs a structured CSV file.
+Execute the preprocessing script to aggregate and clean all historical raw JSON files. This script filters cancelled flights, calculates delay durations, removes duplicates, and outputs a single continuous `processed_flights.csv` file for model training.
 `python src/preprocess.py`
 
 ## Data Version Control (DVC)
@@ -57,10 +59,7 @@ Data Tracking Workflow:
 
 ## Model Inference and Versioning
 
-Currently, the active model used for the inference phase is FlightDelayModel (Version 2), which is set to the Production stage.
-
-Selection Rationale:
-This version was selected because it utilizes the optimal hyperparameter configuration (Random Forest with `n_estimators=200` and `max_depth=20`), proven to deliver the most stable classification performance during the MLflow tracking experiments. Furthermore, it has successfully passed programmatic verification for inference readiness using `mlflow.pyfunc.load_model`. Specific metadata ensuring the data lineage of this production model is managed and tracked via DVC in the `model_metadata.yaml.dvc` file.
+The active model used for the inference phase is dynamically loaded from the MLflow Model Registry. The training pipeline automatically evaluates new runs and promotes models to the Production or Staging environment only if they pass the minimum 80% accuracy threshold.
 
 ## Container Orchestration
 
@@ -74,6 +73,8 @@ Execute the following command in the project root directory to build and start t
 Once the containers are running, access the services via your web browser.
 * MLflow Tracking UI: http://localhost:5000 (Used to view training experiments and Model Registry)
 * FastAPI Inference: http://localhost:8000/docs (Interactive Swagger UI to test the /predict endpoint)
+* Streamlit Master Dashboard: http://localhost:8501 (Central orchestration UI)
+* Prometheus Metrics: http://localhost:8000/metrics (System observability and monitoring)
 
 3. Stop the services:
 Execute the following command to safely stop the application and remove the running containers.
@@ -85,3 +86,4 @@ Development strictly adheres to the GitHub Flow methodology.
 
 * All experiments, fixes, and feature additions must be executed in isolated branches.
 * Changes are merged into the main branch exclusively through Pull Requests after code review and validation.
+* All code must pass the automated pytest suite before merging to ensure pipeline and API integrity.
