@@ -1,0 +1,7 @@
+mlflow:
+  tracking_uri: "http://localhost:5000"
+  experiment_name: "Flight_Delay_Prediction_V2"
+  model_name: "FlightDelayModel"
+
+training:
+  min_accuracy_threshold: 0.80
