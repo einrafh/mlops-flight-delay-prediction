@@ -1,4 +1,5 @@
 import os
+import time
 import argparse
 import warnings
 import pandas as pd
@@ -29,13 +30,11 @@ def train_model(n_estimators, max_depth):
     Train a Random Forest model, evaluate its performance, export preprocessing artifacts,
     and conditionally register it to the MLflow Model Registry based on comparative evaluation.
     """
-    # Dynamically set tracking URI from environment configuration
     tracking_uri = os.getenv("MLFLOW_TRACKING_URI", config["mlflow"]["tracking_uri"])
     experiment_name = config["mlflow"]["experiment_name"]
     model_name = config["mlflow"]["model_name"]
     min_accuracy = config["training"]["min_accuracy_threshold"]
 
-    # Initialize MLflow tracking
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name)
 
@@ -58,7 +57,6 @@ def train_model(n_estimators, max_depth):
     df['airline'] = df['airline'].fillna('Unknown')
     df['airline_encoded'] = le.fit_transform(df['airline'])
     
-    # Save LabelEncoder to a temporary local file
     encoder_path = "label_encoder.pkl"
     joblib.dump(le, encoder_path)
     
@@ -87,7 +85,6 @@ def train_model(n_estimators, max_depth):
         print("[INFO] Initiating model training phase...")
         model.fit(X_train, y_train)
 
-        # Model Evaluation
         y_pred = model.predict(X_test)
         acc = accuracy_score(y_test, y_pred)
         f1 = f1_score(y_test, y_pred, zero_division=0)
@@ -95,22 +92,22 @@ def train_model(n_estimators, max_depth):
         print(f"[INFO] Configuration Evaluated: n_estimators={n_estimators}, max_depth={max_depth}")
         print(f"[INFO] Performance Metrics: Accuracy={acc:.4f}, F1-Score={f1:.4f}")
 
-        # Logging Parameters and Metrics
         mlflow.log_param("n_estimators", n_estimators)
         mlflow.log_param("max_depth", max_depth)
         mlflow.log_param("data_source", "processed_flights.csv")
         mlflow.log_metric("accuracy", acc)
         mlflow.log_metric("f1_score", f1)
 
-        # Logging Model Artifact
-        mlflow.sklearn.log_model(model, artifact_path="model")
-        
-        # Logging Preprocessing Artifact
-        mlflow.log_artifact(encoder_path, artifact_path="preprocessing")
+        # FIX: Menghapus keyword artifact_path yang sudah deprecated (berubah jadi parameter posisional ke-2)
+        mlflow.sklearn.log_model(model, "model")
+        mlflow.log_artifact(encoder_path, "preprocessing")
         
         print("[SUCCESS] Experiment and artifacts successfully logged to the MLflow tracking server.")
         
         run_id = run.info.run_id
+
+    print("[INFO] Waiting 15 seconds for DagsHub artifact synchronization to complete...")
+    time.sleep(15)
 
     # 5. Automated Comparative Evaluation & Model Registry
     if acc >= min_accuracy:
@@ -122,7 +119,6 @@ def train_model(n_estimators, max_depth):
         model_version_info = mlflow.register_model(model_uri, model_name)
         client = MlflowClient()
         
-        # Comparative Evaluation Logic
         try:
             prod_model = client.get_model_version_by_alias(name=model_name, alias="Production")
             prod_run = mlflow.get_run(prod_model.run_id)
@@ -162,7 +158,6 @@ def train_model(n_estimators, max_depth):
         print(f"\n[EVALUATION FAILED] Model accuracy ({acc:.4f}) is below the required threshold ({min_accuracy}).")
         print("[WARNING] The model will not be registered or transitioned to any deployment stage.")
             
-    # Cleaning up local artifact files
     if os.path.exists(encoder_path):
         os.remove(encoder_path)
 
