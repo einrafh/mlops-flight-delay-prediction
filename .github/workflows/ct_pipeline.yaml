@@ -1,0 +1,62 @@
+name: Continuous Training Pipeline
+
+on:
+  # Scenario C: Schedule-based trigger (Executes daily at 00:00 UTC)
+  schedule:
+    - cron: '0 0 * * *'
+  
+  # Scenario B: Data-based trigger (Executes upon receiving Grafana Data Drift webhook)
+  repository_dispatch:
+    types: [grafana-drift-alert]
+    
+  # Manual execution trigger for administrative overrides
+  workflow_dispatch:
+
+# Grants write permissions required for committing updated datasets
+permissions:
+  contents: write
+
+jobs:
+  continuous-training:
+    name: Automated Data Ingestion and Model Retraining
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install System Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Execute Data Ingestion and Preprocessing
+        env:
+          AVIATIONSTACK_API_KEY: ${{ secrets.AVIATIONSTACK_API_KEY }}
+        run: |
+          echo "[INFO] Initiating data ingestion process..."
+          python src/ingest_data.py
+          
+          echo "[INFO] Initiating data preprocessing process..."
+          python src/preprocess.py
+
+      - name: Execute Model Training and Comparative Evaluation
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+        run: |
+          echo "[INFO] Initiating model retraining and evaluation..."
+          python src/train.py --n_estimators 200 --max_depth 20
+
+      - name: Version Control Dataset Updates
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore(data): auto-sync latest flight records [skip ci]" && git push)
+          echo "[INFO] Continuous Training pipeline executed successfully."
