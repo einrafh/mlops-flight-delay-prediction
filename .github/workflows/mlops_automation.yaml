@@ -29,7 +29,7 @@ jobs:
 
       - name: 4. Phase 1 - Automated Unit Testing
         env:
-          MLFLOW_TRACKING_URI: "file:./test_mlruns"
+          MLFLOW_TRACKING_URI: "sqlite:///test_mlflow.db"
         run: |
           echo "Running unit tests via Pytest..."
           pytest tests/ -v
