@@ -3,6 +3,7 @@ import argparse
 import warnings
 import pandas as pd
 import yaml
+import joblib
 from dotenv import load_dotenv
 
 from sklearn.model_selection import train_test_split
@@ -25,8 +26,8 @@ with open("config/config.yaml", "r") as file:
 
 def train_model(n_estimators, max_depth):
     """
-    Train a Random Forest model, evaluate its performance, and conditionally 
-    register it to the MLflow Model Registry based on predefined thresholds.
+    Train a Random Forest model, evaluate its performance, export preprocessing artifacts,
+    and conditionally register it to the MLflow Model Registry based on predefined thresholds.
     """
     # Dynamically set tracking URI from environment configuration
     tracking_uri = os.getenv("MLFLOW_TRACKING_URI", config["mlflow"]["tracking_uri"])
@@ -38,7 +39,7 @@ def train_model(n_estimators, max_depth):
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name)
 
-    # 1. Data Loading (Targeting the static, consolidated file)
+    # 1. Data Loading
     processed_file = os.path.join("data", "processed", "processed_flights.csv")
     
     if not os.path.exists(processed_file):
@@ -48,15 +49,18 @@ def train_model(n_estimators, max_depth):
     print(f"Loading preprocessed dataset from: {processed_file}")
     df = pd.read_csv(processed_file)
 
-    # Ensure dataset is not empty before proceeding
     if df.empty:
         print("[ERROR] The dataset is empty. Cannot proceed with model training.")
         return
 
-    # 2. Feature Engineering
+    # 2. Feature Engineering & Artifact Serialization
     le = LabelEncoder()
     df['airline'] = df['airline'].fillna('Unknown')
     df['airline_encoded'] = le.fit_transform(df['airline'])
+    
+    # Save LabelEncoder to a temporary local file
+    encoder_path = "label_encoder.pkl"
+    joblib.dump(le, encoder_path)
     
     X = df[['airline_encoded']] 
     y = df['is_delayed']
@@ -101,15 +105,15 @@ def train_model(n_estimators, max_depth):
         # Logging Model Artifact
         mlflow.sklearn.log_model(model, artifact_path="model")
         
-        print("[SUCCESS] Experiment successfully logged to the MLflow tracking server.")
+        # Logging Preprocessing Artifact
+        mlflow.log_artifact(encoder_path, artifact_path="preprocessing")
+        
+        print("[SUCCESS] Experiment and artifacts successfully logged to the MLflow tracking server.")
 
         # 5. Automated Evaluation & Model Registry
-        THRESHOLD_ACC = 0.80  # 80% accuracy threshold for production readiness
-
-        if acc >= THRESHOLD_ACC:
-            print(f"\n[EVALUATION PASSED] Model accuracy ({acc:.4f}) meets the minimum threshold ({THRESHOLD_ACC}).")
+        if acc >= min_accuracy:
+            print(f"\n[EVALUATION PASSED] Model accuracy ({acc:.4f}) meets the minimum threshold ({min_accuracy}).")
             
-            model_name = "FlightDelayModel"
             run_id = run.info.run_id
             model_uri = f"runs:/{run_id}/model"
             
@@ -126,8 +130,12 @@ def train_model(n_estimators, max_depth):
             )
             print("[SUCCESS] Automated model registration and stage transition completed.")
         else:
-            print(f"\n[EVALUATION FAILED] Model accuracy ({acc:.4f}) is below the required threshold ({THRESHOLD_ACC}).")
+            print(f"\n[EVALUATION FAILED] Model accuracy ({acc:.4f}) is below the required threshold ({min_accuracy}).")
             print("[WARNING] The model will not be registered or transitioned to Staging.")
+            
+    # Cleaning up local artifact files
+    if os.path.exists(encoder_path):
+        os.remove(encoder_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Flight Delay Prediction Model Training Script")
